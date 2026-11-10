@@ -74,6 +74,48 @@ end)
 
 If you put the thread in `client.lua` itself, you can call `update(cache.ped)` instead of the export.
 
+### Skipping the check in clothing menus
+
+You probably don't want the loop swapping hair while someone is in the illenium-appearance menu picking out a hat or hairstyle. illenium-appearance doesn't have an export or event that says when its menu is open, so there are two ways to handle it.
+
+**Skip the check while any NUI has focus.** This needs no changes to illenium-appearance:
+
+```lua
+CreateThread(function()
+    while true do
+        Wait(1000)
+        if not IsNuiFocused() then
+            exports.your_resource:checkHairTie()
+        end
+    end
+end)
+```
+
+The illenium menu takes NUI focus while it's open, so this covers it. It also pauses the check while the inventory, phone, ox_lib dialogs or any other focused menu is open. That's harmless, because it picks up again a second after the menu closes. This is the recommended option.
+
+**Add an export to illenium-appearance.** Use this if you want to target illenium only. In `illenium-appearance/game/customization.lua`, the local `config` is set when the menu opens and cleared when it closes. Add this next to the existing `exports("startPlayerCustomization", ...)` line:
+
+```lua
+exports("isCustomizing", function() return config ~= nil end)
+```
+
+Then check it in the loop:
+
+```lua
+CreateThread(function()
+    while true do
+        Wait(1000)
+        if not exports['illenium-appearance']:isCustomizing() then
+            exports.your_resource:checkHairTie()
+        end
+    end
+end)
+```
+
+You'll need to add the export again whenever you update illenium-appearance.
+
+Neither option stops the store from saving the tied hairstyle if a player opens it with their hair already up. To handle that you'd let the hair down when the menu opens, for example using `isCustomizing()`.
+
 ## qbx_radialmenu changes
 
 Out of the box, `/hat`, `/mask` and the radial menu's clothing buttons don't call the export. All of these changes go in `qbx_radialmenu/client/clothing.lua`.
