@@ -29,7 +29,7 @@ The config sits at the top of `client.lua`.
 | `command` | The command name, `hairtie` by default |
 | `duration` | How long the progress bar takes, in ms |
 | `anim` | The progress bar animation (`clothingtie` / `check_out_a`, upper body) |
-| `checkLoop` | Re-checks the hair every second, skipping while a NUI has focus. `false` by default. See [Hats and masks can come off at any time](#hats-and-masks-can-come-off-at-any-time). |
+| `checkLoop` | Re-checks the hair every second, skipping while no character is loaded or a NUI has focus. `false` by default. See [Hats and masks can come off at any time](#hats-and-masks-can-come-off-at-any-time). |
 | `hair` | The tied-up hairstyle for each ped model. Defaults are drawable 7 for `mp_m_freemode_01` and 4 for `mp_f_freemode_01`. Check these against your server's hair list, especially if you stream addon hair. |
 
 Peds whose model isn't in `hair` can't use the hair tie.
@@ -68,7 +68,7 @@ Hats get knocked off when ragdolling, falling or getting hit, and other scripts 
 CreateThread(function()
     while true do
         Wait(1000)
-        if not IsNuiFocused() then
+        if LocalPlayer.state.isLoggedIn and not IsNuiFocused() then
             update(cache.ped)
         end
     end
@@ -76,6 +76,8 @@ end)
 ```
 
 `update(cache.ped)` is the same check the export runs.
+
+`LocalPlayer.state.isLoggedIn` is set by Qbox while a character is loaded, so the loop doesn't run on the character select screen or after logging out.
 
 The `IsNuiFocused()` check stops it from swapping hair while someone is in a clothing menu like illenium-appearance, picking out a hat or hairstyle. The illenium menu takes NUI focus while it's open, so this covers it. It also pauses while the inventory, phone, ox_lib dialogs or any other focused menu is open. That's harmless, because the check picks up again a second after the menu closes.
 
@@ -90,7 +92,7 @@ exports("isCustomizing", function() return config ~= nil end)
 Then swap the condition in the `checkLoop` thread in `client.lua`:
 
 ```lua
-            if not exports['illenium-appearance']:isCustomizing() then
+            if LocalPlayer.state.isLoggedIn and not exports['illenium-appearance']:isCustomizing() then
 ```
 
 You'll need to add the export again whenever you update illenium-appearance.

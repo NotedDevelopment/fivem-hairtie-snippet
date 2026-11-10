@@ -77,7 +77,7 @@ if config.checkLoop then
     CreateThread(function()
         while true do
             Wait(1000)
-            if not IsNuiFocused() then
+            if LocalPlayer.state.isLoggedIn and not IsNuiFocused() then
                 update(cache.ped)
             end
         end
