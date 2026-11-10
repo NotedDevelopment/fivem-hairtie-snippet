@@ -2,6 +2,7 @@ local config = {
     command = 'hairtie',
     duration = 2000,
     anim = { dict = 'clothingtie', clip = 'check_out_a', flag = 49 },
+    checkLoop = false, -- check every second, for hats/masks that come off without calling the export
     hair = {
         [`mp_m_freemode_01`] = { drawable = 7, texture = 0 },
         [`mp_f_freemode_01`] = { drawable = 4, texture = 0 },
@@ -71,6 +72,17 @@ end
 exports('checkHairTie', function()
     update(cache.ped)
 end)
+
+if config.checkLoop then
+    CreateThread(function()
+        while true do
+            Wait(1000)
+            if not IsNuiFocused() then
+                update(cache.ped)
+            end
+        end
+    end)
+end
 
 -- appearance gets applied just after the model swap, so give it a moment
 lib.onCache('ped', function(value)

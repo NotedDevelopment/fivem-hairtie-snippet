@@ -29,6 +29,7 @@ The config sits at the top of `client.lua`.
 | `command` | The command name, `hairtie` by default |
 | `duration` | How long the progress bar takes, in ms |
 | `anim` | The progress bar animation (`clothingtie` / `check_out_a`, upper body) |
+| `checkLoop` | Re-checks the hair every second, skipping while a NUI has focus. `false` by default. See [Hats and masks can come off at any time](#hats-and-masks-can-come-off-at-any-time). |
 | `hair` | The tied-up hairstyle for each ped model. Defaults are drawable 7 for `mp_m_freemode_01` and 4 for `mp_f_freemode_01`. Check these against your server's hair list, especially if you stream addon hair. |
 
 Peds whose model isn't in `hair` can't use the hair tie.
@@ -47,7 +48,7 @@ A progress bar and hair tie animation play when the hair tie goes from off to on
 
 The hairstyle a player had before it got tied up is kept in memory on the client, not in the KVP. If a player saves their appearance in a clothing store while their hair is tied, the tied hairstyle becomes their saved hair, so there's nothing to switch back to after a relog.
 
-The hair gets checked automatically when the ped changes (ox_lib's `cache.ped`), when the player loads in, and when the resource starts. Anything else that puts on or takes off a hat or mask has to call the export.
+The hair gets checked automatically when the ped changes (ox_lib's `cache.ped`), when the player loads in, and when the resource starts. Anything else that puts on or takes off a hat or mask has to call the export, unless `checkLoop` is on.
 
 ## Export
 
@@ -61,60 +62,40 @@ Call it right after your scripts change a hat (prop 0) or mask (component 1).
 
 ### Hats and masks can come off at any time
 
-Hats get knocked off when ragdolling, falling or getting hit, and other scripts can change hats and masks without calling the export. If that can happen on your server, add a thread that keeps checking:
-
-```lua
-CreateThread(function()
-    while true do
-        Wait(1000)
-        exports.your_resource:checkHairTie()
-    end
-end)
-```
-
-If you put the thread in `client.lua` itself, you can call `update(cache.ped)` instead of the export.
-
-### Skipping the check in clothing menus
-
-You probably don't want the loop swapping hair while someone is in the illenium-appearance menu picking out a hat or hairstyle. illenium-appearance doesn't have an export or event that says when its menu is open, so there are two ways to handle it.
-
-**Skip the check while any NUI has focus.** This needs no changes to illenium-appearance:
+Hats get knocked off when ragdolling, falling or getting hit, and other scripts can change hats and masks without calling the export. If that can happen on your server, set `checkLoop = true` in the config. It starts this thread:
 
 ```lua
 CreateThread(function()
     while true do
         Wait(1000)
         if not IsNuiFocused() then
-            exports.your_resource:checkHairTie()
+            update(cache.ped)
         end
     end
 end)
 ```
 
-The illenium menu takes NUI focus while it's open, so this covers it. It also pauses the check while the inventory, phone, ox_lib dialogs or any other focused menu is open. That's harmless, because it picks up again a second after the menu closes. This is the recommended option.
+`update(cache.ped)` is the same check the export runs.
 
-**Add an export to illenium-appearance.** Use this if you want to target illenium only. In `illenium-appearance/game/customization.lua`, the local `config` is set when the menu opens and cleared when it closes. Add this next to the existing `exports("startPlayerCustomization", ...)` line:
+The `IsNuiFocused()` check stops it from swapping hair while someone is in a clothing menu like illenium-appearance, picking out a hat or hairstyle. The illenium menu takes NUI focus while it's open, so this covers it. It also pauses while the inventory, phone, ox_lib dialogs or any other focused menu is open. That's harmless, because the check picks up again a second after the menu closes.
+
+### Only skipping illenium-appearance
+
+illenium-appearance doesn't have an export or event that says when its menu is open. If you'd rather skip only that menu instead of every NUI, add an export to it. In `illenium-appearance/game/customization.lua`, the local `config` is set when the menu opens and cleared when it closes. Add this next to the existing `exports("startPlayerCustomization", ...)` line:
 
 ```lua
 exports("isCustomizing", function() return config ~= nil end)
 ```
 
-Then check it in the loop:
+Then swap the condition in the `checkLoop` thread in `client.lua`:
 
 ```lua
-CreateThread(function()
-    while true do
-        Wait(1000)
-        if not exports['illenium-appearance']:isCustomizing() then
-            exports.your_resource:checkHairTie()
-        end
-    end
-end)
+            if not exports['illenium-appearance']:isCustomizing() then
 ```
 
 You'll need to add the export again whenever you update illenium-appearance.
 
-Neither option stops the store from saving the tied hairstyle if a player opens it with their hair already up. To handle that you'd let the hair down when the menu opens, for example using `isCustomizing()`.
+Neither way stops the store from saving the tied hairstyle if a player opens it with their hair already up. To handle that you'd let the hair down when the menu opens, for example using `isCustomizing()`.
 
 ## qbx_radialmenu changes
 
