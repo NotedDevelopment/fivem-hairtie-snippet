@@ -2,7 +2,7 @@ local config = {
     command = 'hairtie',
     duration = 2000,
     anim = { dict = 'clothingtie', clip = 'check_out_a', flag = 49 },
-    checkLoop = false, -- check every second, for hats/masks that come off without calling the export
+    checkLoop = false,
     hair = {
         [`mp_m_freemode_01`] = { drawable = 7, texture = 0 },
         [`mp_f_freemode_01`] = { drawable = 4, texture = 0 },
@@ -73,18 +73,20 @@ exports('checkHairTie', function()
     update(cache.ped)
 end)
 
-if config.checkLoop then
+local looping = false
+
+local function startLoop()
+    if not config.checkLoop or looping then return end
+    looping = true
     CreateThread(function()
-        while true do
+        while LocalPlayer.state.isLoggedIn and isOn(getSettings()) do
+            if not IsNuiFocused() then update(cache.ped) end
             Wait(1000)
-            if LocalPlayer.state.isLoggedIn and not IsNuiFocused() then
-                update(cache.ped)
-            end
         end
+        looping = false
     end)
 end
 
--- appearance gets applied just after the model swap, so give it a moment
 lib.onCache('ped', function(value)
     SetTimeout(1000, function()
         if cache.ped == value then update(value) end
@@ -93,7 +95,10 @@ end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
     savedHair = nil
-    SetTimeout(5000, function() update(cache.ped) end)
+    SetTimeout(5000, function()
+        update(cache.ped)
+        startLoop()
+    end)
 end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
@@ -101,7 +106,9 @@ RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
 end)
 
 AddEventHandler('onClientResourceStart', function(resource)
-    if resource == GetCurrentResourceName() then update(cache.ped) end
+    if resource ~= GetCurrentResourceName() then return end
+    update(cache.ped)
+    startLoop()
 end)
 
 RegisterCommand(config.command, function()
@@ -132,6 +139,7 @@ RegisterCommand(config.command, function()
 
     saveSettings(settings)
     update(cache.ped)
+    if nowOn then startLoop() end
 
     if not nowOn then
         notify('Hair tie off')
